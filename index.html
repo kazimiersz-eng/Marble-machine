@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>La rueda programable</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f3f1ea;--card:#fffefb;--ink:#1c2230;--mute:#5b6270;--line:#d6d1c4;--btn:#1c2230;--btnink:#fff;--on:#2f6fed;--ok:#1b7a3d;--no:#b3261e;--cell:#ebe8de;--cell2:#ddd9cb;--mel:#2f6fed;--bas:#8a4fd0;--per:#e0702a}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14171d;--card:#1d222b;--ink:#eceff4;--mute:#a1a9b8;--line:#343b48;--btn:#eceff4;--btnink:#14171d;--ok:#5fd18a;--no:#ff8a80;--cell:#262c37;--cell2:#2f3643;--mel:#6b9bff;--bas:#b98cf0;--per:#ff9a5a}}
+:root[data-theme="dark"]{--bg:#14171d;--card:#1d222b;--ink:#eceff4;--mute:#a1a9b8;--line:#343b48;--btn:#eceff4;--btnink:#14171d;--ok:#5fd18a;--no:#ff8a80;--cell:#262c37;--cell2:#2f3643;--mel:#6b9bff;--bas:#b98cf0;--per:#ff9a5a}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:17px/1.45 "Avenir Next","Segoe UI",system-ui,sans-serif;background:var(--bg)}
+.app{max-width:1280px;margin:0 auto;padding:14px}
+h1{font:700 1.7rem/1.1 Georgia,"Times New Roman",serif;margin:0 0 10px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+button{font:600 1rem inherit;font-family:inherit;min-height:52px;padding:0 18px;border-radius:12px;border:2px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button:focus-visible{outline:3px solid var(--on);outline-offset:2px}
+button.main{background:var(--btn);color:var(--btnink);border-color:var(--btn);min-width:130px}
+button.sel{background:var(--on);color:#fff;border-color:var(--on)}
+.sp{flex:1}
+label{display:flex;align-items:center;gap:8px;font-weight:600}
+input[type=range]{width:150px;height:30px}
+canvas{display:block;width:100%;height:auto;touch-action:none;background:var(--card);border:2px solid var(--line);border-radius:14px}
+.panel{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-top:12px}
+.chk{background:var(--card);border:2px solid var(--line);border-radius:12px;padding:10px 14px}
+.chk b{display:block}
+.chk span{color:var(--mute);font-size:.92rem}
+.chk.ok{border-color:var(--ok)}.chk.ok b{color:var(--ok)}
+.chk.no b{color:var(--no)}
+.hint{color:var(--mute);margin:10px 0 0;font-size:.95rem}
+.tpl{display:none}
+.tpl table{border-collapse:collapse;width:100%;margin-bottom:14px;font-size:12px}
+.tpl td,.tpl th{border:1px solid #444;height:26px;text-align:center;padding:0}
+.tpl th.l{text-align:left;padding:0 6px;width:110px;white-space:nowrap}
+.tpl td.g{border-right:2px solid #000}
+.view-tpl .app>.main-ui{display:none}.view-tpl .tpl{display:block}
+@media print{.bar,.main-ui,h1.scr{display:none!important}.tpl{display:block!important}body{background:#fff;color:#000}.noprint{display:none}}
+</style></head>
+<body>
+<div class="app">
+<div class="main-ui">
+<h1>La rueda programable</h1>
+<div class="bar">
+<button class="main" id="play">▶ Reproducir</button>
+<button id="tA" class="sel">Sección A</button><button id="tB">Sección B</button>
+<span class="sp"></span>
+<button id="mAB" class="sel">A y B</button><button id="mA">Solo A</button><button id="mB">Solo B</button>
+</div>
+<canvas id="cv" width="1200" height="640" aria-label="Rejilla de 16 pasos"></canvas>
+<canvas id="mv" width="1200" height="640" aria-label="Vista de la máquina de bolas" style="display:none"></canvas>
+<div class="bar" style="margin-top:10px">
+<label>Tempo <input type="range" id="bpm" min="60" max="140" value="90"><output id="bpmo">90</output></label>
+<span class="sp"></span>
+<button id="tv" class="main">Ver máquina</button><button id="cp">Copiar A en B</button><button id="clr">Borrar sección</button><button id="rst">Empezar de cero</button><button id="tp">Plantilla imprimible</button>
+</div>
+<div class="panel" id="checks"></div>
+<p class="hint">Toca o arrastra sobre la rejilla para colocar bolas. Cada bola cae en su paso y suena al llegar a su fila. Las notas son pentatónicas: cualquier combinación suena bien, y Do es la nota de reposo. Tu máquina tiene 6 carriles: en «Ver máquina» toca un carril para elegir su instrumento.</p>
+</div>
+<div class="tpl" id="tpl">
+<div class="noprint bar"><button class="main" onclick="try{window.print()}catch(e){}">Imprimir</button><button id="back">Volver a la herramienta</button></div>
+<p><b>Nombre:</b> ______________________ <b>Pareja:</b> ______________________ <b>Título:</b> ______________________</p>
+<p>Marca con ● los pasos donde cae una bola. Escribe el instrumento de cada carril. Tu melodía debe acabar en <b>Do</b>.</p>
+</div>
+</div>
+<script>
+const ROWS=[{n:"Melodía La",t:"m",f:440},{n:"Melodía Sol",t:"m",f:392},{n:"Melodía Mi",t:"m",f:329.63},{n:"Melodía Re",t:"m",f:293.66},{n:"Melodía Do",t:"m",f:261.63},
+{n:"Bajo Sol",t:"b",f:98},{n:"Bajo Do",t:"b",f:130.81},{n:"Hi-hat",t:"p",k:"hh"},{n:"Caja",t:"p",k:"sn"},{n:"Bombo",t:"p",k:"bd"}];
+const COL=["#ff6b6b","#ffa94d","#ffe066","#69db7c","#4dabf7","#9775fa","#da77f2","#adb5bd","#dee2e6","#868e96"];
+const NR=6,NC=16,GX=170,GY=40,CW=(1200-GX-14)/NC,RH=84,FALL=.7,LOOK=.3;
+const mk=()=>Array.from({length:NR},()=>Array(NC).fill(false));
+let g=[mk(),mk()],map=[2,4,6,7,8,9];
+try{const s=JSON.parse(localStorage.getItem("rp2"));if(s&&s.g&&s.g.length==2&&s.g[0].length==NR&&s.map&&s.map.length==NR&&new Set(s.map).size==NR&&s.map.every(v=>v>=0&&v<10)){g=s.g;map=s.map}}catch(e){}
+const save=()=>{try{localStorage.setItem("rp2",JSON.stringify({g,map}))}catch(e){}};
+const RW=r=>ROWS[map[r]],V=(S,i)=>S[map.indexOf(i)]||Array(NC).fill(false);
+const $=id=>document.getElementById(id);
+const cv=$("cv"),c=cv.getContext("2d");const mv=$("mv"),m=mv.getContext("2d");let mach=false;
+let ac,master,nb,play=false,mode="AB",bpm=90,idx=0,nextT=0,Q=[],view=0,timer,dragging=false,paint=true;
+function ctx(){if(!ac){ac=new(window.AudioContext||window.webkitAudioContext)();master=ac.createGain();master.gain.value=.8;master.connect(ac.destination);
+nb=ac.createBuffer(1,ac.sampleRate,ac.sampleRate);const d=nb.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1}
+if(ac.state==="suspended")ac.resume();return ac}
+function voice(r,t){const a=ac,e=a.createGain();e.connect(master);
+if(r.t==="m"||r.t==="b"){const o=a.createOscillator(),d=r.t==="m"?.5:.55;o.type="triangle";o.frequency.value=r.f;
+e.gain.setValueAtTime(0,t);e.gain.linearRampToValueAtTime(r.t==="m"?.4:.7,t+.005);e.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(e);o.start(t);o.stop(t+d+.05)}
+else if(r.k==="bd"){const o=a.createOscillator();o.frequency.setValueAtTime(150,t);o.frequency.exponentialRampToValueAtTime(45,t+.12);
+e.gain.setValueAtTime(1,t);e.gain.exponentialRampToValueAtTime(.001,t+.32);o.connect(e);o.start(t);o.stop(t+.35)}
+else{const s=a.createBufferSource(),f=a.createBiquadFilter(),sn=r.k==="sn",d=sn?.18:.05;s.buffer=nb;f.type=sn?"bandpass":"highpass";f.frequency.value=sn?1900:7500;
+e.gain.setValueAtTime(sn?.8:.45,t);e.gain.exponentialRampToValueAtTime(.001,t+d);s.connect(f);f.connect(e);s.start(t);s.stop(t+d+.02)}}
+function tick(){while(nextT<ac.currentTime+FALL+.1){const sec=mode==="AB"?Math.floor((idx%32)/16):mode==="A"?0:1,col=idx%16;
+Q.push({t:nextT,sec,col,s:0});nextT+=60/bpm/2;idx++}
+for(const q of Q)if(!q.s&&q.t<ac.currentTime+LOOK){q.s=1;for(let r=0;r<NR;r++)if(g[q.sec][r][q.col])voice(RW(r),q.t)}}
+function start(){ctx();idx=0;nextT=ac.currentTime+FALL+.15;Q=[];play=true;timer=setInterval(tick,50);tick();ui()}
+function stop(){play=false;clearInterval(timer);Q=[];if(master){master.disconnect();master=ac.createGain();master.gain.value=.8;master.connect(ac.destination)}ui()}
+function ui(){$("play").textContent=play?"■ Parar":"▶ Reproducir";$("tA").classList.toggle("sel",view===0);$("tB").classList.toggle("sel",view===1);
+["AB","A","B"].forEach(m=>$("m"+m).classList.toggle("sel",mode===m))}
+function css(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim()}
+function laneCol(r){return COL[ROWS.indexOf(r)]}
+function draw(){requestAnimationFrame(draw);const now=ac?ac.currentTime:0;let cur=null;
+if(play){Q=Q.filter(q=>q.t>now-.3);for(const q of Q)if(q.t<=now)cur=q;if(cur&&view!==cur.sec){view=cur.sec;ui()}}
+if(mach){drawM(now,cur);return}
+c.clearRect(0,0,1200,640);const G=g[view],ink=css("--ink"),mute=css("--mute"),cell=css("--cell"),cell2=css("--cell2");
+c.font="600 17px system-ui,sans-serif";c.textBaseline="middle";
+for(let k=0;k<NC;k++){c.fillStyle=cur&&cur.col===k?ink:mute;c.textAlign="center";c.fillText(k+1,GX+k*CW+CW/2,20)}
+for(let r=0;r<NR;r++){const y=GY+r*RH,col=laneCol(RW(r));c.textAlign="left";c.fillStyle=col;c.fillRect(8,y+8,6,RH-16);c.fillStyle=ink;c.fillText(RW(r).n,22,y+RH/2);
+for(let k=0;k<NC;k++){const x=GX+k*CW;c.fillStyle=(cur&&cur.col===k)?cell2:(Math.floor(k/4)%2?cell:cell2);
+if(!(cur&&cur.col===k)&&Math.floor(k/4)%2===0)c.fillStyle=cell2;c.beginPath();c.roundRect(x+3,y+4,CW-6,RH-8,8);c.fill();
+if(G[r][k]){c.fillStyle=col;c.globalAlpha=.9;c.beginPath();c.arc(x+CW/2,y+RH/2,16,0,7);c.fill();c.globalAlpha=1}}}
+if(cur){c.strokeStyle=ink;c.lineWidth=3;c.strokeRect(GX+cur.col*CW,GY-2,CW,NR*RH+4)}
+if(play)for(const q of Q){if(q.sec!==view)continue;const p=1-(q.t-now)/FALL;if(p<0||p>1.3)continue;
+for(let r=0;r<NR;r++)if(g[view][r][q.col]){const x=GX+q.col*CW+CW/2,yT=GY+r*RH+RH/2;
+if(p<1){const y=GY-14+(yT-GY+14)*p*p;c.fillStyle=laneCol(RW(r));c.strokeStyle=ink;c.lineWidth=2;c.beginPath();c.arc(x,y,13,0,7);c.fill();c.stroke()}
+else{c.strokeStyle=laneCol(RW(r));c.lineWidth=4;c.beginPath();c.arc(x,yT,16+(p-1)*70,0,7);c.stroke()}}}}
+function hit(e){const b=cv.getBoundingClientRect(),x=(e.clientX-b.left)*1200/b.width,y=(e.clientY-b.top)*640/b.height,k=Math.floor((x-GX)/CW),r=Math.floor((y-GY)/RH);
+return k>=0&&k<NC&&r>=0&&r<NR?{r,k}:null}
+function setc(h){if(g[view][h.r][h.k]===paint)return;g[view][h.r][h.k]=paint;if(paint&&!play)voice(RW(h.r),ac.currentTime+.01);save();check()}
+cv.addEventListener("pointerdown",e=>{ctx();const h=hit(e);if(!h)return;paint=!g[view][h.r][h.k];dragging=true;cv.setPointerCapture(e.pointerId);setc(h)});
+cv.addEventListener("pointermove",e=>{if(dragging){const h=hit(e);if(h)setc(h)}});
+cv.addEventListener("pointerup",()=>dragging=false);cv.addEventListener("pointercancel",()=>dragging=false);
+function check(){const A=g[0],B=g[1],cnt=S=>S.flat().filter(Boolean).length;
+const perc=[7,8,9].filter(i=>V(A,i).some(Boolean)).length,acc=V(A,9)[0]||V(A,8)[0];
+const lastCol=(()=>{for(let k=NC-1;k>=0;k--)for(let i=0;i<5;i++)if(V(B,i)[k])return k;return -1})();
+const endDo=lastCol>=0&&V(B,4)[lastCol],hasMel=[0,1,2,3,4].some(i=>V(A,i).some(Boolean));
+let diff=0;for(let r=0;r<NR;r++)for(let k=0;k<NC;k++)if(A[r][k]!==B[r][k])diff++;
+const items=[
+[perc>=2&&acc,"Pulso y ritmo (3 puntos)","Percusión distinta en A: "+perc+" de 3 (mínimo 2). Acento en el paso 1 con bombo o caja: "+(acc?"sí":"no")+"."],
+[hasMel&&endDo,"Melodía con sentido (3 puntos)",!hasMel?"Aún no hay melodía en A.":lastCol<0?"Falta la melodía de B.":"La melodía de B acaba en "+ROWS[[0,1,2,3,4].find(i=>V(B,i)[lastCol])].n.replace("Melodía ","")+(endDo?": reposo en Do.":". Debe acabar en Do.")],
+[cnt(A)>=6&&cnt(B)>=6&&diff>=10,"Forma y contraste (4 puntos)","Bolas en A: "+cnt(A)+", en B: "+cnt(B)+". Casillas distintas entre A y B: "+diff+" (mínimo 10). Prepara qué explicarás de voz."]];
+$("checks").innerHTML=items.map(i=>'<div class="chk '+(i[0]?"ok":"no")+'"><b>'+(i[0]?"✓ ":"✗ ")+i[1]+'</b><span>'+i[2]+'</span></div>').join("")}
+$("play").onclick=()=>play?stop():start();
+$("tA").onclick=()=>{view=0;ui()};$("tB").onclick=()=>{view=1;ui()};
+for(const m of["AB","A","B"])$("m"+m).onclick=()=>{mode=m;if(m!=="AB")view=m==="A"?0:1;if(play){idx=0;nextT=Math.max(nextT,ac.currentTime+.1)}ui()};
+$("bpm").oninput=e=>{bpm=+e.target.value;$("bpmo").textContent=bpm};
+$("cp").onclick=()=>{g[1]=g[0].map(r=>r.slice());save();check();view=1;ui()};
+let armed=0;$("clr").onclick=()=>{if(!armed){armed=1;$("clr").textContent="¿Seguro? Toca otra vez";setTimeout(()=>{armed=0;$("clr").textContent="Borrar sección"},2200)}else{g[view]=mk();armed=0;$("clr").textContent="Borrar sección";save();check()}};
+// plantilla imprimible
+(function(){let h="";for(const s of["A","B"]){h+="<table><tr><th class=l>Sección "+s+"</th>";for(let k=1;k<=NC;k++)h+="<th"+(k%4==0?" class=g":"")+">"+k+"</th>";h+="</tr>";
+for(let r=0;r<NR;r++){h+="<tr><th class=l>Carril "+(r+1)+": ________</th>";for(let k=1;k<=NC;k++)h+="<td"+(k%4==0?" class=g":"")+"></td>";h+="</tr>"}h+="</table>"}
+$("tpl").insertAdjacentHTML("beforeend",h)})();
+$("tp").onclick=()=>{stop();document.body.classList.add("view-tpl")};
+$("back").onclick=()=>document.body.classList.remove("view-tpl");
+// ---- Vista máquina ----
+const CX=600,CY=215,IY=480,IXf=i=>130+i*105.5,RR=r=>50+r*18,OFF=r=>(r-2.5)*9,SD=()=>60/bpm/2;
+const NAMES=["La","Sol","Mi","Re","Do","Bajo Sol","Bajo Do","Hi-hat","Caja","Bombo"];
+function pos(r,p){const x0=CX+OFF(r),yA=CY+RR(r),yB=CY+170,xe=IXf(map[r]);if(p<.2)return[CX+(x0-CX)*p/.2,yA+(yB-yA)*p/.2];const q=(p-.2)/.8,s=q*q*(3-2*q);return[x0+(xe-x0)*s,yB+(IY-yB)*q*q]}
+function drawM(now,cur){
+m.fillStyle="#161b22";m.fillRect(0,0,1200,640);
+let e=null;if(play)for(const q of Q)if(q.t<=now+FALL)e=q;
+const sec=e?e.sec:view,sw=e?e.col+(now+FALL-e.t)/SD():0,G=g[sec];
+m.fillStyle="#222a35";m.strokeStyle="#3a4556";m.lineWidth=4;m.beginPath();m.arc(CX,CY,150,0,7);m.fill();m.stroke();
+for(let k=0;k<NC;k++){const th=Math.PI/2+(k-sw)*Math.PI/8,ca=Math.cos(th),sa=Math.sin(th),d=((k-sw)%NC+NC)%NC,ap=d<2.5?1-d/2.5:0;
+for(let r=0;r<NR;r++){const x=CX+RR(r)*ca,y=CY+RR(r)*sa;m.fillStyle=G[r][k]?COL[map[r]]:"#3a4556";m.beginPath();m.arc(x,y,G[r][k]?8+4*ap:2.5,0,7);m.fill();if(G[r][k]&&ap>.6){m.strokeStyle="#fff";m.lineWidth=2;m.stroke()}}}
+m.fillStyle="#3a4556";m.beginPath();m.arc(CX,CY,16,0,7);m.fill();
+m.fillStyle="#fff";m.beginPath();m.moveTo(CX,CY+150);m.lineTo(CX-9,CY+134);m.lineTo(CX+9,CY+134);m.fill();
+m.lineCap="round";for(let r=0;r<NR;r++){m.strokeStyle=COL[map[r]];m.globalAlpha=.4;m.lineWidth=8;m.beginPath();for(let i=0;i<=16;i++){const[x,y]=pos(r,.2+.8*i/16);i?m.lineTo(x,y):m.moveTo(x,y)}m.stroke();m.globalAlpha=1}
+const H=Array(10).fill(0);for(const q of Q)if(q.t<=now&&now-q.t<.25)for(let r=0;r<NR;r++)if(g[q.sec][r][q.col])H[map[r]]=Math.max(H[map[r]],1-(now-q.t)/.25);
+m.textAlign="center";m.font="600 16px system-ui,sans-serif";
+for(let i=0;i<10;i++){const x=IXf(i),on=map.includes(i),h=H[i],sh=Math.sin(now*70)*h*2.5;
+m.globalAlpha=on?1:.35;m.fillStyle=on?COL[i]:"#222a35";m.strokeStyle=COL[i];m.lineWidth=3;m.beginPath();m.roundRect(x-44,IY+8+sh,88,80,10);m.fill();m.stroke();
+if(h>0){m.fillStyle="rgba(255,255,255,"+h*.6+")";m.beginPath();m.roundRect(x-44,IY+8+sh,88,80,10);m.fill()}
+m.globalAlpha=1;m.fillStyle="#e6ebf2";m.fillText(NAMES[i],x,IY+112)}
+for(const q of Q){const p=(now-(q.t-FALL))/FALL;if(p<0||p>1)continue;for(let r=0;r<NR;r++)if(g[q.sec][r][q.col]){const[x,y]=pos(r,p);m.fillStyle=COL[map[r]];m.strokeStyle="#fff";m.lineWidth=2;m.beginPath();m.arc(x,y,9,0,7);m.fill();m.stroke()}}
+m.textAlign="left";m.font="600 17px system-ui,sans-serif";
+for(let r=0;r<NR;r++){const y=100+r*56;m.fillStyle=COL[map[r]];m.beginPath();m.roundRect(20,y,190,44,10);m.fill();m.fillStyle="#10141a";m.fillText("Carril "+(r+1)+" · "+NAMES[map[r]],32,y+23)}
+m.fillStyle="#9aa6b8";m.font="600 15px system-ui,sans-serif";m.fillText("Toca un carril para cambiar su instrumento",20,82);
+m.fillStyle="#e6ebf2";m.font="700 28px Georgia,serif";m.fillText("Sección "+"AB"[cur?cur.sec:view],20,40);
+m.font="600 16px system-ui,sans-serif";m.fillStyle="#9aa6b8";m.fillText(cur?"Paso "+(cur.col+1)+" de 16":"Parada",150,40)}
+mv.addEventListener("pointerdown",e=>{const b=mv.getBoundingClientRect(),x=(e.clientX-b.left)*1200/b.width,y=(e.clientY-b.top)*640/b.height,r=Math.floor((y-100)/56);if(x<210&&y>=100&&r>=0&&r<NR&&(y-100)%56<44){for(let k=1;k<=10;k++){const j=(map[r]+k)%10;if(!map.includes(j)){map[r]=j;break}}save();check()}});
+$("tv").onclick=()=>{mach=!mach;cv.style.display=mach?"none":"block";mv.style.display=mach?"block":"none";$("tv").textContent=mach?"Ver rejilla":"Ver máquina"};
+let arm2=0;$("rst").onclick=()=>{if(!arm2){arm2=1;$("rst").textContent="¿Seguro? Toca otra vez";setTimeout(()=>{arm2=0;$("rst").textContent="Empezar de cero"},2200)}else{g=[mk(),mk()];view=0;arm2=0;$("rst").textContent="Empezar de cero";save();check();ui()}};
+ui();check();draw();
+</script></body></html>
