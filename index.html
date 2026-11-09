@@ -67,7 +67,7 @@ canvas{display:block;width:100%;height:auto;touch-action:none;background:var(--c
 <input id="lki" readonly hidden aria-label="Enlace a tu pieza">
 <p class="hint" style="margin-top:12px"><b>Comprobaciones técnicas.</b> No son la nota: no dicen si suena bien ni si sabes explicarlo.</p>
 <div class="panel" id="checks"></div>
-<p class="hint">Toca o arrastra sobre la rejilla para colocar bolas. Cada bola cae en su paso y suena al llegar a su fila. Las notas son pentatónicas: cualquier combinación suena bien, y Do es la nota de reposo. Tu máquina tiene 6 carriles: toca el nombre de un carril (▾) para cambiar su instrumento.</p>
+<p class="hint">Toca o arrastra sobre la rejilla para colocar bolas. Cada bola cae en su paso y suena al llegar a su fila. Las notas son pentatónicas: cualquier combinación suena bien, y Do es la nota de reposo. Tu máquina tiene 10 carriles: toca el nombre de un carril (▾) para cambiar su instrumento.</p>
 </div>
 <div class="tpl" id="tpl">
 <div class="noprint bar"><button class="main" onclick="try{window.print()}catch(e){}">Imprimir</button><button id="back">Volver a la herramienta</button></div>
@@ -80,9 +80,9 @@ canvas{display:block;width:100%;height:auto;touch-action:none;background:var(--c
 const ROWS=[{n:"Melodía Do alto",t:"m",f:523.25},{n:"Melodía La",t:"m",f:440},{n:"Melodía Sol",t:"m",f:392},{n:"Melodía Mi",t:"m",f:329.63},{n:"Melodía Re",t:"m",f:293.66},{n:"Melodía Do",t:"m",f:261.63},
 {n:"Bajo Sol",t:"b",f:98},{n:"Bajo Do",t:"b",f:130.81},{n:"Hi-hat",t:"p",k:"hh"},{n:"Caja",t:"p",k:"sn"},{n:"Bombo",t:"p",k:"bd"}];
 const COL=["#f06595","#ff6b6b","#ffa94d","#ffe066","#69db7c","#4dabf7","#9775fa","#da77f2","#adb5bd","#dee2e6","#868e96"];
-const NR=6,NC=16,NI=11,GX=170,GY=40,CW=(1200-GX-14)/NC,RH=84,FALL=.7,LOOK=.3;
+const NR=10,NC=16,NI=11,GX=170,GY=40,CW=(1200-GX-14)/NC,RH=58,FALL=.7,LOOK=.3;
 const mk=()=>Array.from({length:NR},()=>Array(NC).fill(false));
-let g=[mk(),mk()],map=[2,3,5,7,9,10];
+let g=[mk(),mk()],map=[1,2,3,4,5,6,7,8,9,10];
 const okMap=a=>a&&a.length==NR&&new Set(a).size==NR&&a.every(v=>Number.isInteger(v)&&v>=0&&v<NI);
 try{const s=JSON.parse(localStorage.getItem("rp3"));if(s&&s.g&&s.g.length==2&&s.g[0].length==NR&&okMap(s.map)){g=s.g;map=s.map}}catch(e){}
 let linked=false;
@@ -92,11 +92,11 @@ const $=id=>document.getElementById(id);
 const cv=$("cv"),c=cv.getContext("2d");const mv=$("mv"),m=mv.getContext("2d");let mach=false;
 let ac,master,nb,play=false,mode="AB",bpm=90,idx=0,nextT=0,Q=[],view=0,timer,dragging=false,paint=true;
 // ---- enlace con el estado ----
-const enc=()=>{const b=[1,bpm-60,...map];let a=0,n=0;for(const s of g)for(const r of s)for(const v of r){a=a<<1|(v?1:0);if(++n==8){b.push(a);a=0;n=0}}
+const enc=()=>{const b=[2,bpm-60,...map];let a=0,n=0;for(const s of g)for(const r of s)for(const v of r){a=a<<1|(v?1:0);if(++n==8){b.push(a);a=0;n=0}}
 return btoa(String.fromCharCode(...b)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")};
 const dec=h=>{try{const b=[...atob(h.replace(/-/g,"+").replace(/_/g,"/"))].map(x=>x.charCodeAt(0));
-if(b.length!=32||b[0]!=1)return null;const mp=b.slice(2,8),bp=b[1]+60;if(!okMap(mp)||bp>140)return null;
-const G=[mk(),mk()];let t=0;for(const S of G)for(const r of S)for(let k=0;k<NC;k++,t++)r[k]=((b[8+(t>>3)]>>(7-(t&7)))&1)==1;
+if(b.length!=2+NR+2*NR*NC/8||b[0]!=2)return null;const mp=b.slice(2,2+NR),bp=b[1]+60;if(!okMap(mp)||bp>140)return null;
+const G=[mk(),mk()];let t=0;for(const S of G)for(const r of S)for(let k=0;k<NC;k++,t++)r[k]=((b[2+NR+(t>>3)]>>(7-(t&7)))&1)==1;
 return{g:G,map:mp,bpm:bp}}catch(e){return null}};
 {const h=location.hash.slice(1);if(h){const d=dec(h);if(d){g=d.g;map=d.map;bpm=d.bpm;linked=true}}}
 function ctx(){if(!ac){ac=new(window.AudioContext||window.webkitAudioContext)();master=ac.createGain();master.gain.value=.8;master.connect(ac.destination);
@@ -177,7 +177,7 @@ $("tb").innerHTML=h}
 $("tp").onclick=()=>{stop();tpl();document.body.classList.add("view-tpl")};
 $("back").onclick=()=>document.body.classList.remove("view-tpl");
 // ---- Vista máquina ----
-const CX=600,CY=215,IY=480,IXf=i=>100+i*100,RR=r=>50+r*18,OFF=r=>(r-2.5)*9,SD=()=>60/bpm/2;
+const CX=600,CY=215,IY=480,IXf=i=>100+i*100,RR=r=>40+r*10,OFF=r=>(r-(NR-1)/2)*7,SD=()=>60/bpm/2;
 const NAMES=["Do alto","La","Sol","Mi","Re","Do","Bajo Sol","Bajo Do","Hi-hat","Caja","Bombo"];
 function pos(r,p){const x0=CX+OFF(r),yA=CY+RR(r),yB=CY+170,xe=IXf(map[r]);if(p<.2)return[CX+(x0-CX)*p/.2,yA+(yB-yA)*p/.2];const q=(p-.2)/.8,s=q*q*(3-2*q);return[x0+(xe-x0)*s,yB+(IY-yB)*q*q]}
 function drawM(now,cur){
@@ -186,7 +186,7 @@ let e=null;if(play)for(const q of Q)if(q.t<=now+FALL)e=q;
 const sec=e?e.sec:view,sw=e?e.col+(now+FALL-e.t)/SD():0,G=g[sec];
 m.fillStyle="#222a35";m.strokeStyle="#3a4556";m.lineWidth=4;m.beginPath();m.arc(CX,CY,150,0,7);m.fill();m.stroke();
 for(let k=0;k<NC;k++){const th=Math.PI/2+(k-sw)*Math.PI/8,ca=Math.cos(th),sa=Math.sin(th),d=((k-sw)%NC+NC)%NC,ap=d<2.5?1-d/2.5:0;
-for(let r=0;r<NR;r++){const x=CX+RR(r)*ca,y=CY+RR(r)*sa;m.fillStyle=G[r][k]?COL[map[r]]:"#3a4556";m.beginPath();m.arc(x,y,G[r][k]?8+4*ap:2.5,0,7);m.fill();if(G[r][k]&&ap>.6){m.strokeStyle="#fff";m.lineWidth=2;m.stroke()}}}
+for(let r=0;r<NR;r++){const x=CX+RR(r)*ca,y=CY+RR(r)*sa;m.fillStyle=G[r][k]?COL[map[r]]:"#3a4556";m.beginPath();m.arc(x,y,G[r][k]?4.5+2.5*ap:2,0,7);m.fill();if(G[r][k]&&ap>.6){m.strokeStyle="#fff";m.lineWidth=2;m.stroke()}}}
 m.fillStyle="#3a4556";m.beginPath();m.arc(CX,CY,16,0,7);m.fill();
 m.fillStyle="#fff";m.beginPath();m.moveTo(CX,CY+150);m.lineTo(CX-9,CY+134);m.lineTo(CX+9,CY+134);m.fill();
 m.lineCap="round";for(let r=0;r<NR;r++){m.strokeStyle=COL[map[r]];m.globalAlpha=.4;m.lineWidth=8;m.beginPath();for(let i=0;i<=16;i++){const[x,y]=pos(r,.2+.8*i/16);i?m.lineTo(x,y):m.moveTo(x,y)}m.stroke();m.globalAlpha=1}
@@ -196,13 +196,13 @@ for(let i=0;i<NI;i++){const x=IXf(i),on=map.includes(i),h=H[i],sh=Math.sin(now*7
 m.globalAlpha=on?1:.35;m.fillStyle=on?COL[i]:"#222a35";m.strokeStyle=COL[i];m.lineWidth=3;m.beginPath();m.roundRect(x-44,IY+8+sh,88,80,10);m.fill();m.stroke();
 if(h>0){m.fillStyle="rgba(255,255,255,"+h*.6+")";m.beginPath();m.roundRect(x-44,IY+8+sh,88,80,10);m.fill()}
 m.globalAlpha=1;m.fillStyle="#e6ebf2";m.fillText(NAMES[i],x,IY+112)}
-for(const q of Q){const p=(now-(q.t-FALL))/FALL;if(p<0||p>1)continue;for(let r=0;r<NR;r++)if(g[q.sec][r][q.col]){const[x,y]=pos(r,p);m.fillStyle=COL[map[r]];m.strokeStyle="#fff";m.lineWidth=2;m.beginPath();m.arc(x,y,9,0,7);m.fill();m.stroke()}}
+for(const q of Q){const p=(now-(q.t-FALL))/FALL;if(p<0||p>1)continue;for(let r=0;r<NR;r++)if(g[q.sec][r][q.col]){const[x,y]=pos(r,p);m.fillStyle=COL[map[r]];m.strokeStyle="#fff";m.lineWidth=2;m.beginPath();m.arc(x,y,7,0,7);m.fill();m.stroke()}}
 m.textAlign="left";m.font="600 17px system-ui,sans-serif";
-for(let r=0;r<NR;r++){const y=100+r*56;m.fillStyle=COL[map[r]];m.beginPath();m.roundRect(20,y,190,44,10);m.fill();m.fillStyle="#10141a";m.fillText("Carril "+(r+1)+" · "+NAMES[map[r]],32,y+23)}
+for(let r=0;r<NR;r++){const y=100+r*36;m.fillStyle=COL[map[r]];m.beginPath();m.roundRect(20,y,190,30,8);m.fill();m.fillStyle="#10141a";m.fillText("Carril "+(r+1)+" · "+NAMES[map[r]],32,y+16)}
 m.fillStyle="#9aa6b8";m.font="600 15px system-ui,sans-serif";m.fillText("Toca un carril para cambiar su instrumento",20,82);
 m.fillStyle="#e6ebf2";m.font="700 28px Georgia,serif";m.fillText("Sección "+"AB"[cur?cur.sec:view],20,40);
 m.font="600 16px system-ui,sans-serif";m.fillStyle="#9aa6b8";m.fillText(cur?"Paso "+(cur.col+1)+" de 16":"Parada",150,40)}
-mv.addEventListener("pointerdown",e=>{ctx();const b=mv.getBoundingClientRect(),x=(e.clientX-b.left)*1200/b.width,y=(e.clientY-b.top)*640/b.height,r=Math.floor((y-100)/56);if(x<210&&y>=100&&r>=0&&r<NR&&(y-100)%56<44)openSel(r)});
+mv.addEventListener("pointerdown",e=>{ctx();const b=mv.getBoundingClientRect(),x=(e.clientX-b.left)*1200/b.width,y=(e.clientY-b.top)*640/b.height,r=Math.floor((y-100)/36);if(x<210&&y>=100&&r>=0&&r<NR&&(y-100)%36<30)openSel(r)});
 $("tv").onclick=()=>{mach=!mach;cv.style.display=mach?"none":"block";mv.style.display=mach?"block":"none";$("tv").textContent=mach?"Ver rejilla":"Ver máquina"};
 let arm2=0;$("rst").onclick=()=>{if(!arm2){arm2=1;$("rst").textContent="¿Seguro? Toca otra vez";setTimeout(()=>{arm2=0;$("rst").textContent="Empezar de cero"},2200)}else{g=[mk(),mk()];view=0;arm2=0;$("rst").textContent="Empezar de cero";save();check();ui()}};
 $("bpm").value=bpm;$("bpmo").textContent=bpm;$("ban").hidden=!linked;
